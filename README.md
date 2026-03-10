@@ -25,7 +25,7 @@ conda activate sgo
 **2. Install the Bleeding-Edge Engine**
 You must use the Nightly cu128 (or cu126) wheels to get native RTX 5090 support.
 ```bash
-pip install --pre torch torchvision --index-url [https://download.pytorch.org/whl/nightly/cu128](https://download.pytorch.org/whl/nightly/cu128)
+pip install --pre torch torchvision --index-url https://download.pytorch.org/whl/nightly/cu128
 ```
 
 **3. Install Meta-AI Bridges & Project Dependencies**
@@ -41,7 +41,7 @@ pip install lvis pycocotools scipy shapely pandas opencv-python tqdm timm submit
 **4. Inject OV-DQUO Source Code Safely**
 We clone the original architecture but only move the internal modules to prevent overwriting custom repository files (like this README or custom inference scripts).
 ```bash
-git clone [https://github.com/xiaomoguhz/ov-dquo.git](https://github.com/xiaomoguhz/ov-dquo.git) temp_dquo
+git clone https://github.com/xiaomoguhz/ov-dquo.git temp_dquo
 
 # Move only the core architecture modules
 mv temp_dquo/models ./ 
@@ -76,7 +76,7 @@ sh make.sh
 cd ../../
 
 # Build Detectron2
-python -m pip install 'git+[https://github.com/facebookresearch/detectron2.git](https://github.com/facebookresearch/detectron2.git)' --no-build-isolation --force-reinstall --no-deps
+python -m pip install 'git+https://github.com/facebookresearch/detectron2.git' --no-build-isolation --force-reinstall --no-deps
 ```
 
 ## Dataset Preparation & Inference
