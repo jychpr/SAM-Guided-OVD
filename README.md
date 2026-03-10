@@ -59,8 +59,11 @@ rm -rf temp_dquo
 **5. Patch the Obsolete C++ Code**
 The original authors used a deprecated PyTorch C++ API (value.type().is_cuda()) that has been entirely removed from modern PyTorch. You must patch their source code before compiling.
 ```bash
-find models/ops/src -type f -exec sed -i 's/value\.scalar_type()\.is_cuda()/value.is_cuda()/g' {} +
+# 1. Fix CUDA assertions
 find models/ops/src -type f -exec sed -i 's/value\.type()\.is_cuda()/value.is_cuda()/g' {} +
+
+# 2. Fix legacy type dispatch macros
+find models/ops/src -type f -exec sed -i 's/value\.type()/value.scalar_type()/g' {} +
 ```
 
 **6. Native Architecture Compilation**
