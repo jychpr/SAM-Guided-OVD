@@ -1,16 +1,1 @@
-lvis==0.5.3
-pycocotools
-scipy
-shapely
-pandas
-opencv-python
 tqdm
-timm
-submitit
-einops
-transformers
-open_clip_torch
-torchmetrics
-mmcv==1.7.1
-termcolor
-yapf==0.32.0
