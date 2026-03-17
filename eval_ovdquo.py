@@ -20,6 +20,15 @@ COCO_JSON = "data/gai19coco/test/_annotations.coco.json"
 IMAGE_DIR = "data/gai19coco/test/"
 
 # Engineered Prompts
+# PROMPT_MAP = {
+#     'crimpers': 'crimpers', 'cutter': 'cutter', 'drill': 'drill',
+#     'hammer': 'hammer', 'hand file': 'hand file', 'measurement tape': 'measurement tape',
+#     'pen': 'pen', 'pliers': 'pliers', 'power supply': 'power supply',
+#     'scissors': 'scissors', 'screwdriver': 'screwdriver', 'screws': 'screws',
+#     'tape': 'tape', 'tweezers': 'tweezers', 'usb cable': 'usb cable',
+#     'vernier caliper': 'vernier caliper', 'whiteboard marker': 'whiteboard marker',
+#     'wire': 'wire', 'wrench': 'wrench'
+# }
 PROMPT_MAP = {
     'crimpers': 'crimping tool',
     'cutter': 'wire cutter',

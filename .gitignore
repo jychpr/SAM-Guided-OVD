@@ -242,3 +242,19 @@ GAI20/
 *.json
 *.zip
 *.tar.gz
+
+
+
+# Weights
+*.pth
+*.pt
+
+# Datasets & Outputs
+data/
+output/
+__pycache__/
+
+# Compiled C++ Extensions
+models/ops/build/
+models/ops/dist/
+models/ops/*.egg-info/
