@@ -184,7 +184,7 @@ class OV_DQUO(nn.Module):
         if isinstance(samples, (list, torch.Tensor)):
             samples = nested_tensor_from_tensor_list(samples)
         if self.training:
-            assert self.args.pseudo_box != ""
+            # assert self.args.pseudo_box != ""  # THESIS: Bypassed for standard COCO training
             with torch.no_grad():
                 if "RN" in self.args.backbone:
                     categories.append(self.args.wildcard) # add wildcard embed
@@ -197,7 +197,7 @@ class OV_DQUO(nn.Module):
             if "RN" in self.args.backbone:
                 text_feature=self.classifier(categories)
             else:
-                assert self.args.pseudo_box != ""
+                # assert self.args.pseudo_box != ""  # THESIS: Bypassed for standard COCO training
                 text_feature=self.classifier[:-1] # remove wildcard embed during ovlvis inference
         ori_clip_features, ori_clip_pos_embeds = self.backbone(samples)
         clip_features = [

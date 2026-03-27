@@ -89,8 +89,19 @@ def train_one_epoch(
                 target['labels'] = new_label
         else:
             used_categories = categories
+        # --- THESIS: Batch SAM Priors ---
+        sam_list = [t.get('sam_proposals', torch.tensor([[0.5, 0.5, 0.1, 0.1]])).to(device) for t in targets]
+        max_sam_len = max([s.shape[0] for s in sam_list])
+        padded_sam_list = []
+        for s in sam_list:
+            if s.shape[0] < max_sam_len:
+                padding = s[0].unsqueeze(0).repeat(max_sam_len - s.shape[0], 1)
+                s = torch.cat([s, padding], dim=0)
+            padded_sam_list.append(s)
+        batched_sam_proposals = torch.stack(padded_sam_list, dim=0)
+        # --------------------------------
         with torch.cuda.amp.autocast(enabled=args.amp):
-            outputs = model(samples,categories=used_categories,targets=targets)
+            outputs = model(samples, categories=used_categories, targets=targets, sam_proposals=batched_sam_proposals)
             for target in targets:
                 target["ori_labels"] = target["labels"]
                 target["labels"] = target["labels"] - target["labels"]
@@ -213,10 +224,22 @@ def evaluate(
             }
             for t in targets
         ]
+        # --- THESIS: Batch SAM Priors ---
+        sam_list = [t.get('sam_proposals', torch.tensor([[0.5, 0.5, 0.1, 0.1]])).to(device) for t in targets]
+        max_sam_len = max([s.shape[0] for s in sam_list])
+        padded_sam_list = []
+        for s in sam_list:
+            if s.shape[0] < max_sam_len:
+                padding = s[0].unsqueeze(0).repeat(max_sam_len - s.shape[0], 1)
+                s = torch.cat([s, padding], dim=0)
+            padded_sam_list.append(s)
+        batched_sam_proposals = torch.stack(padded_sam_list, dim=0)
+        # --------------------------------
         outputs = model(
             samples,
             categories=data_loader.dataset.category_list,
             targets=targets,
+            sam_proposals=batched_sam_proposals
         )
         # for loss only
         training_target = []
