@@ -252,10 +252,12 @@ class OVDeformableTransformer(DeformableTransformer):
                 elif outputs_class.size(-1) == 1204:
                     target_index = LVIS_INDEX
                 else:
-                    assert False, "the dataset may not be supported"
-                outputs_class[:, :, target_index] = (
-                    outputs_class[:, :, target_index] * self.args.target_class_factor
-                )
+                    target_index = None
+
+                if target_index is not None:
+                    outputs_class[:, :, target_index] = (
+                        outputs_class[:, :, target_index] * self.args.target_class_factor
+                    )
             outputs_class = outputs_class[:, :, :-1]  
             classes_ = outputs_class.max(-1)[1]
             if self.args.pseudo_box and self.training:

@@ -54,7 +54,8 @@ def train_one_epoch(
         samples = samples.to(device)
         targets = [
             {
-                k: v if isinstance(v, (list, dict)) else v.to(device)
+                # k: v if isinstance(v, (list, dict)) else v.to(device)
+                k: v if isinstance(v, (list, dict)) else (v.to(device) if hasattr(v, 'to') else v)
                 for k, v in t.items()
             }
             for t in targets
@@ -202,10 +203,15 @@ def evaluate(
         lvis_results = []
         label_map = args.label_map
         iou_types = ["bbox"]
-    elif args.dataset_file == "ovcoco":
+    elif args.dataset_file in ["ovcoco", "gai19"]:
         iou_types = tuple(k for k in ("segm", "bbox") if k in postprocessors.keys())
+        label2cat = getattr(data_loader.dataset, 'label2catid', None)
+        if label2cat is None and hasattr(data_loader.dataset, 'coco'):
+            cats = data_loader.dataset.coco.loadCats(data_loader.dataset.coco.getCatIds())
+            cats = sorted(cats, key=lambda x: x['id'])
+            label2cat = {i: cat['id'] for i, cat in enumerate(cats)}
         coco_evaluator = CocoEvaluator(
-            base_ds, iou_types, label2cat=data_loader.dataset.label2catid
+            base_ds, iou_types, label2cat=label2cat
         )
 
     else:
