@@ -19,6 +19,7 @@ from util.utils import ModelEma
 import util.misc as utils
 import datasets
 from datasets import build_dataset, get_coco_api_from_dataset
+from datasets.gai19 import build_gai19
 from engine import evaluate, train_one_epoch
 
 
