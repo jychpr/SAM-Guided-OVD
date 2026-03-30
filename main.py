@@ -132,6 +132,24 @@ def main(args):
             model, device_ids=[args.gpu], find_unused_parameters=args.find_unused_params
         )
         model_without_ddp = model.module
+        # ---------------------------------------------------------
+        # THESIS CORE: SURGICAL LAYER FREEZING FOR 25-SHOT ADAPTATION
+        # ---------------------------------------------------------
+        print(">>> EXECUTING SURGICAL FREEZE FOR DATA-EFFICIENT FINE-TUNING <<<")
+        for name, param in model_without_ddp.named_parameters():
+            # 1. Freeze the visual backbone completely (it already knows how to see)
+            if "backbone" in name:
+                param.requires_grad = False
+            # 2. Freeze the bounding box regression head (FastSAM geometry is already flawless)
+            elif "bbox_embed" in name:
+                param.requires_grad = False
+            # 3. Enforce text encoder freeze (CLIP must remain static)
+            elif "text_encoder" in name or "clip" in name.lower():
+                param.requires_grad = False
+            # 4. Keep the transformer decoder, cross-attention, and class heads active
+            else:
+                param.requires_grad = True
+        # ---------------------------------------------------------
     n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
     logger.info("number of params:" + str(n_parameters))
     logger.info(
