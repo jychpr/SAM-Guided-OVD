@@ -1,3 +1,5 @@
+from PIL import Image
+from datasets.coco import make_coco_transforms
 import os
 import json
 import torch
@@ -16,11 +18,11 @@ from util.slconfig import SLConfig
 from main import build_model_main
 from util.misc import nested_tensor_from_tensor_list
 
-CONFIG_FILE = "config/OV_COCO/OVDQUO_RN50.py"
-WEIGHTS_FILE = "output/gai19_finetuned_rn50/checkpoint0099.pth"
+CONFIG_FILE = "config/OV_COCO/OVDQUO_RN50x4.py"
+WEIGHTS_FILE = "output/gai19_finetuned_rn50x4/checkpoint0049.pth"
 COCO_JSON = "data/gai19coco/test/_annotations.coco.json"
 IMAGE_DIR = "data/gai19coco/test/"
-OUTPUT_DIR = "output/gai19_finetuned_rn50_inference/"
+OUTPUT_DIR = "output/gai19_finetuned_rn50x4_inference_v2/"
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
@@ -81,7 +83,7 @@ def run_inference():
     args.target_class_factor = 1.0
 
     print("Building Modified OV-DQUO Model (RN50)...")
-    model, _, _ = build_model_main(args)
+    model, _, postprocessors = build_model_main(args)
     checkpoint = torch.load(WEIGHTS_FILE, map_location="cpu", weights_only=False)
     model.load_state_dict(checkpoint.get("model", checkpoint), strict=False)
     model.eval().to(args.device)
@@ -134,37 +136,49 @@ def run_inference():
             else:
                 targets.append({"boxes": torch.empty((0, 4)), "labels": torch.empty((0,), dtype=torch.int64)})
 
-            # 2. Get FastSAM Priors
-            sam_boxes = extract_fastsam_boxes_for_eval(img_path, top_k=model.num_queries)
-            sam_boxes = sam_boxes.unsqueeze(0).to(args.device)
+            # -----------------------------------------------------------------
+            # THESIS FIX: MATCH THE EVALUATION PIPELINE EXACTLY
+            # -----------------------------------------------------------------
+            # 2. Load the EXACT precomputed SAM priors used in evaluation
+            base_name = os.path.splitext(img_info['file_name'])[0]
+            sam_pt_path = os.path.join("output/gai19coco/sam_priors_test", f"{base_name}.pt")
+            if os.path.exists(sam_pt_path):
+                sam_boxes = torch.load(sam_pt_path).unsqueeze(0).to(args.device)
+            else:
+                sam_boxes = torch.tensor([[[0.5, 0.5, 0.1, 0.1]]], device=args.device)
 
-            # 3. Image Preprocessing
-            image_tensor = TF.to_tensor(image_rgb)
-            image_tensor = TF.normalize(image_tensor, mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+            # 3. Image Preprocessing (MUST BE RESIZED TO DETR STANDARDS)
+            image_pil = Image.open(img_path).convert("RGB")
+            transform = make_coco_transforms("val")
+            # The transform requires a dummy target dict
+            dummy_target = {"size": torch.tensor([img_h, img_w])} 
+            image_tensor, _ = transform(image_pil, dummy_target)
             image_tensor = image_tensor.to(args.device)
             samples = nested_tensor_from_tensor_list([image_tensor])
+            # -----------------------------------------------------------------
 
             # 4. Forward Pass (Feeding the sorted long semantics)
             outputs = model(samples, categories=semantic_definitions.copy(), sam_proposals=sam_boxes)
             
-            # 5. Post-Processing
-            scores = outputs["pred_logits"][0].sigmoid() 
-            boxes_norm = outputs["pred_boxes"][0] 
-            boxes_abs = boxes_norm * torch.tensor([img_w, img_h, img_w, img_h], device=args.device)
-            boxes_xyxy = box_convert(boxes=boxes_abs, in_fmt="cxcywh", out_fmt="xyxy")
+            # 5. Post-Processing (Using DETR native postprocessor for perfect scaling)
+            orig_target_sizes = torch.tensor([[img_h, img_w]], device=args.device)
+            results = postprocessors["bbox"](outputs, orig_target_sizes)[0]
             
-            max_scores, labels = scores.max(dim=1)
+            boxes_xyxy = results["boxes"]
+            scores = results["scores"]
+            labels = results["labels"]
             
-            eval_keep = max_scores > 0.05
-            if eval_keep.sum() > 0:
-                preds.append({"boxes": boxes_xyxy[eval_keep].cpu(), "scores": max_scores[eval_keep].cpu(), "labels": labels[eval_keep].cpu()})
-            else:
-                preds.append({"boxes": torch.empty((0, 4)), "scores": torch.empty((0,)), "labels": torch.empty((0,), dtype=torch.int64)})
+            # 5b. Pass ALL raw predictions to the evaluator to plot the full PR curve
+            preds.append({
+                "boxes": boxes_xyxy.cpu(), 
+                "scores": scores.cpu(), 
+                "labels": labels.cpu()
+            })
 
-            # 6. Visualization (NMS inherently handled by DETR matching, but let's threshold slightly higher)
-            vis_keep = max_scores > 0.25
+            # 6. Visualization (Keep the threshold here so your images don't look messy)
+            vis_keep = scores > 0.25
             vis_boxes = boxes_xyxy[vis_keep].cpu().numpy()
-            vis_scores = max_scores[vis_keep].cpu().numpy()
+            vis_scores = scores[vis_keep].cpu().numpy()
             vis_labels = labels[vis_keep].cpu().numpy()
 
             draw_img = image_cv.copy()
@@ -189,6 +203,10 @@ def run_inference():
     print(f"mAP (IoU=0.50:0.95): {results['map'].item():.4f}")
     print(f"mAP@0.50:            {results['map_50'].item():.4f}")
     print(f"mAP@0.75:            {results['map_75'].item():.4f}")
+    print("--- RECALL METRICS ---")
+    print(f"AR@1 (Max 1 Det):    {results['mar_1'].item():.4f}")
+    print(f"AR@10 (Max 10 Det):  {results['mar_10'].item():.4f}")
+    print(f"AR@100 (Max 100 Det):{results['mar_100'].item():.4f}")
 
 if __name__ == "__main__":
     run_inference()
